@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-openapi/strfmt"
 	log "github.com/sirupsen/logrus"
+
 	"goauthentik.io/api/v3"
 	"goauthentik.io/internal/outpost/ldap/bind"
 	directbind "goauthentik.io/internal/outpost/ldap/bind/direct"
 	memorybind "goauthentik.io/internal/outpost/ldap/bind/memory"
 	"goauthentik.io/internal/outpost/ldap/constants"
-	"goauthentik.io/internal/outpost/ldap/flags"
 	directsearch "goauthentik.io/internal/outpost/ldap/search/direct"
 	memorysearch "goauthentik.io/internal/outpost/ldap/search/memory"
 )
@@ -55,12 +55,12 @@ func (ls *LDAPServer) Refresh() error {
 		logger := log.WithField("logger", "authentik.outpost.ldap").WithField("provider", provider.Name)
 
 		// Get existing instance so we can transfer boundUsers
+		var boundUsers *sync.Map
 		existing := ls.getCurrentProvider(provider.Pk)
-		users := make(map[string]*flags.UserFlags)
 		if existing != nil {
-			existing.boundUsersMutex.RLock()
-			users = existing.boundUsers
-			existing.boundUsersMutex.RUnlock()
+			boundUsers = existing.boundUsers
+		} else {
+			boundUsers = &sync.Map{}
 		}
 
 		providers[idx] = &ProviderInstance{
@@ -72,8 +72,7 @@ func (ls *LDAPServer) Refresh() error {
 			authenticationFlowSlug: provider.BindFlowSlug,
 			invalidationFlowSlug:   invalidationFlow,
 			searchAllowedGroups:    []*strfmt.UUID{(*strfmt.UUID)(provider.SearchGroup.Get())},
-			boundUsersMutex:        sync.RWMutex{},
-			boundUsers:             users,
+			boundUsers:             boundUsers,
 			s:                      ls,
 			log:                    logger,
 			tlsServerName:          provider.TlsServerName,
@@ -82,6 +81,7 @@ func (ls *LDAPServer) Refresh() error {
 			outpostName:            ls.ac.Outpost.Name,
 			outpostPk:              provider.Pk,
 		}
+
 		if kp := provider.Certificate.Get(); kp != nil {
 			err := ls.cs.AddKeypair(*kp)
 			if err != nil {

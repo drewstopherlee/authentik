@@ -6,6 +6,7 @@ import (
 	ttlcache "github.com/jellydator/ttlcache/v3"
 	"github.com/nmcclain/ldap"
 	log "github.com/sirupsen/logrus"
+
 	"goauthentik.io/internal/outpost/ldap/bind"
 	"goauthentik.io/internal/outpost/ldap/bind/direct"
 	"goauthentik.io/internal/outpost/ldap/server"
@@ -52,7 +53,7 @@ func (sb *SessionBinder) Bind(username string, req *bind.Request) (ldap.LDAPResu
 	}
 	sb.log.Debug("No session found for user, executing flow")
 	result, err := sb.DirectBinder.Bind(username, req)
-	// Only cache the result if there's been an error
+	// Only cache the result if there hasn't been an error
 	if err == nil {
 		flags := sb.si.GetFlags(req.BindDN)
 		if flags == nil {

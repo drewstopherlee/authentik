@@ -9,6 +9,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/nmcclain/ldap"
 	log "github.com/sirupsen/logrus"
+
 	"goauthentik.io/api/v3"
 	"goauthentik.io/internal/constants"
 	"goauthentik.io/internal/outpost/ldap/bind"
@@ -39,8 +40,7 @@ type ProviderInstance struct {
 	outpostName         string
 	outpostPk           int32
 	searchAllowedGroups []*strfmt.UUID
-	boundUsersMutex     sync.RWMutex
-	boundUsers          map[string]*flags.UserFlags
+	boundUsers          *sync.Map
 
 	uidStartNumber int32
 	gidStartNumber int32
@@ -71,23 +71,19 @@ func (pi *ProviderInstance) GetOutpostName() string {
 }
 
 func (pi *ProviderInstance) GetFlags(dn string) *flags.UserFlags {
-	pi.boundUsersMutex.RLock()
-	defer pi.boundUsersMutex.RUnlock()
-	flags, ok := pi.boundUsers[dn]
+	flag, ok := pi.boundUsers.Load(dn)
 	if !ok {
 		return nil
 	}
-	return flags
+	return flag.(*flags.UserFlags)
 }
 
 func (pi *ProviderInstance) SetFlags(dn string, flag *flags.UserFlags) {
-	pi.boundUsersMutex.Lock()
 	if flag == nil {
-		delete(pi.boundUsers, dn)
+		pi.boundUsers.Delete(dn)
 	} else {
-		pi.boundUsers[dn] = flag
+		pi.boundUsers.Store(dn, flag)
 	}
-	pi.boundUsersMutex.Unlock()
 }
 
 func (pi *ProviderInstance) GetAppSlug() string {
